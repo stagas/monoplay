@@ -1,0 +1,6 @@
+@font-face {
+  src: url('./assets/Kanit-Light.ttf') format('truetype');
+  font-family: 'Kanit';
+  font-style: 'light';
+  font-display: 'fallback';
+}
