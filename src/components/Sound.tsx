@@ -7,17 +7,13 @@ import { Arg, Token } from '@stagas/mono'
 import { Fragment, VRef, h } from '@stagas/vele'
 import { Collection, Value, useCollection, useEffect, useRef, useState, useValue } from '../app'
 import { make } from '../compile'
-import { Edit } from '.'
-
-const unicode = (a: number, b: number) => String.fromCharCode(a + Math.random() * (b - a + 1))
+import { Edit, Knobs, Presets } from '.'
 
 const style = css`
   display: flex;
-  /* max-width: 100%; */
   background: var(--black);
   flex-flow: row nowrap;
   width: 100%;
-  /* width: 50ch; */
 
   .main {
     width: 100%;
@@ -33,75 +29,6 @@ const style = css`
     z-index: 1;
   }
 
-  .knobs {
-    font-family: Kanit;
-    display: flex;
-    flex-flow: row;
-    justify-content: space-around;
-
-    x-knob {
-      &::part(knob-container) {
-        margin-top: -10px;
-        width: 50px;
-        height: 80px;
-      }
-      &::part(knob-outer) {
-        width: 100%;
-        height: 100%;
-      }
-      input {
-        display: none;
-      }
-    }
-  }
-
-  .presets {
-    display: block;
-    min-width: 100px;
-    max-width: 100px;
-    margin: 0;
-    padding: 0;
-    .inner {
-      min-height: 100.5%;
-    }
-    overflow-y: scroll;
-    overscroll-behavior: contain;
-    span {
-      display: inline-flex;
-      vertical-align: bottom;
-      align-items: center;
-      justify-content: center;
-      background: rgba(0, 0, 0, 0.5);
-      &:hover {
-        background: rgba(0, 0, 0, 0);
-      }
-      width: 50px;
-      height: 51px;
-      text-overflow: clip;
-      color: var(--black);
-    }
-    button {
-      position: relative;
-      cursor: pointer;
-      display: block;
-      float: left;
-      opacity: 0.5;
-      color: var(--black);
-      &:hover {
-        opacity: 1;
-      }
-      font-family: Cambria, Cochin, Georgia, Times, 'Times New Roman', serif;
-      font-size: 20px;
-      height: 50px;
-      /* line-height: 0.5em; */
-      width: 50px;
-      margin: 0;
-      padding: 0;
-      border: none;
-      /* overflow: hidden; */
-    }
-  }
-
   button {
     width: 42px;
     border: none;
@@ -109,11 +36,13 @@ const style = css`
     color: var(--purple);
   }
 
-  code-edit::part(textarea) {
-    min-height: 7em;
-  }
-  code-edit::part(parent) {
-    resize: vertical;
+  code-edit {
+    &::part(textarea) {
+      min-height: 7em;
+    }
+    &::part(parent) {
+      resize: vertical;
+    }
   }
 
   x-plot {
@@ -274,36 +203,22 @@ const insert = (x: string, index: number, y: string, offset = 0) => {
 let frame: number
 export const Sound = ({ sound }: { sound: SoundState }) => {
   const plot = useRef<Plot>()
-  const editor = useRef<CodeEditElement>()
+  const editorRef = useRef<CodeEditElement>()
 
-  const ref = useRef<HTMLDivElement>()
+  const soundRef = useRef<HTMLDivElement>()
   useEffect(() => {
     sound.compile()
-  }, [ref])
-
-  const presetRef = useRef<HTMLDivElement>()
-
-  useEffect(() => {
-    const el = presetRef.current
-    const resize = () => {
-      el.style.height = '0'
-      const rect = ref.current.getBoundingClientRect()
-      el.style.height = rect.height + 'px'
-    }
-    setTimeout(resize)
-    const observer = new ResizeObserver(resize)
-    observer.observe(editor.current!)
-  }, [presetRef])
+  }, [soundRef])
 
   console.log('draw sound')
 
   return (
-    <div ref={ref} class="sound" theme="blue-matrix">
+    <div ref={soundRef} class="sound" theme="blue-matrix">
       <style>{style('.sound')}</style>
       <div class="main">
         <div class="edit">
           <Edit
-            ref={editor}
+            ref={editorRef}
             value={sound.value}
             language="mono"
             theme="blue-matrix"
@@ -335,61 +250,8 @@ export const Sound = ({ sound }: { sound: SoundState }) => {
         </div>
         <SoundPlot plot={plot} sound={sound} />
       </div>
-      <div ref={presetRef} class="presets">
-        <div class="inner">
-          {Array.from({ length: 20 })
-            .fill(0)
-            .map((_, i) => (
-              <button
-                key={i}
-                style={{
-                  background: `var(--${
-                    ['yellow', 'green', 'red', 'blue', 'cyan', 'purple'][(Math.random() * 6) | 0]
-                  })`,
-                }}
-              >
-                {unicode(0x0250, 0x02af)}
-              </button>
-            ))}
-        </div>
-      </div>
+      <Presets soundRef={soundRef} editorRef={editorRef} />
     </div>
-  )
-}
-
-const Knobs = ({ knobs }: { knobs: Value<Collection<KnobState, Arg>> }) => {
-  console.log('draw knobs')
-  return (
-    <>
-      {knobs.get().map((knob, key) => {
-        const inputRef = useRef<HTMLInputElement>()
-        const knobRef = useRef<KnobElement>()
-
-        useEffect(() => {
-          setTimeout(() => {
-            if (knobRef.current.value !== knob.value.value) {
-              inputRef.current.dispatchEvent(new InputEvent('input'))
-            }
-          })
-        }, [inputRef, knobRef, knob.value])
-
-        return (
-          <x-knob ref={knobRef} key={key} theme="sweet" fontsize={21} fontspace={0} fontpos={18}>
-            <input
-              ref={inputRef}
-              type="range"
-              step={(knob.max - knob.min) / 127}
-              min={knob.min}
-              max={knob.max}
-              value={Math.min(knob.max, Math.max(knob.min, knob.value.value))}
-              oninput={ev => {
-                knob.value.set(+ev.currentTarget.value)
-              }}
-            />
-          </x-knob>
-        )
-      })}
-    </>
   )
 }
 

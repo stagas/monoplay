@@ -100,14 +100,8 @@ const style = css`
 `
 
 const provider = new Provider()
-
 setCurrentProvider(provider as never)
-
-export const useValue = provider.useValue
-export const useState = provider.useState
-export const useRef = provider.useRef
-export const useEffect = provider.useEffect
-export const useCollection = provider.useCollection
+export const { useValue, useState, useRef, useEffect, useCollection } = provider
 
 export type { Value, Collection }
 
