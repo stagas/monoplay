@@ -6,11 +6,13 @@ import 'scoped-registries'
 import { CodeEditElement, HTMLCodeEditElement, languages } from 'code-edit'
 import { HTMLIconSvgElement, IconSvgElement } from 'icon-svg'
 import { css } from 'nested-css'
+// import { useCollection } from './helpers'
+import { Provider } from 'virtual-state'
+import type { Collection, Value } from 'virtual-state'
 import { HTMLKnobElement, KnobElement } from 'x-knob'
 import { Plot } from 'x-plot'
-import { Fragment, h, render } from '@stagas/vele'
+import { Fragment, h, render, setCurrentProvider } from '@stagas/vele'
 import { Sound, SoundState } from './components'
-import { useCollection } from './helpers'
 
 customElements.define('x-plot', Plot)
 customElements.define('x-knob', KnobElement)
@@ -95,15 +97,29 @@ const style = css`
   }
 `
 
-const sounds = useCollection(id => {
-  const sound = new SoundState(id)
-  // sound.compile()
-  return sound
-})
+const provider = new Provider()
 
-const allSounds = ['a', 'b', 'c']
+setCurrentProvider(provider as never)
+
+export const useValue = provider.useValue
+export const useState = provider.useState
+export const useRef = provider.useRef
+export const useEffect = provider.useEffect
+export const useCollection = provider.useCollection
+
+export type { Value, Collection }
 
 const App = () => {
+  console.log('draw app')
+
+  const sounds = useCollection(id => {
+    const sound = new SoundState(id)
+    // sound.compile()
+    return sound
+  })
+
+  const allSounds = ['a', 'b', 'c']
+
   return (
     <>
       <style>{style('')}</style>

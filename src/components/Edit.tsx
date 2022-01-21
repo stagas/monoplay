@@ -1,10 +1,11 @@
+import CodeEditElement from 'code-edit'
+import { Value } from 'virtual-state'
 // import { CodeEditElement } from 'code-edit'
 import { VRef, h } from '@stagas/vele'
-import { HookState } from '.'
 
 export interface EditProps {
-  ref?: VRef
-  value: HookState<string>
+  ref?: VRef<CodeEditElement>
+  value: Value<string>
   language?: string
   slot?: string
   style?: string

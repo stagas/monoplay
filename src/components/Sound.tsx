@@ -5,8 +5,8 @@ import { KnobElement } from 'x-knob'
 import { Plot } from 'x-plot'
 import { Arg, Token } from '@stagas/mono'
 import { Fragment, VRef, h } from '@stagas/vele'
+import { Collection, Value, useCollection, useEffect, useRef, useState, useValue } from '../app'
 import { make } from '../compile'
-import { Collection, HookState, useCollection, useRef, useState } from '../helpers'
 import { Edit } from '.'
 
 const unicode = (a: number, b: number) => String.fromCharCode(a + Math.random() * (b - a + 1))
@@ -130,7 +130,7 @@ const ctx = new AudioContext({ sampleRate, latencyHint: 'playback' })
 interface KnobState {
   id: string
   arg: Arg
-  value: HookState<number>
+  value: Value<number>
   min: number
   max: number
 }
@@ -140,12 +140,12 @@ export class SoundState {
   vars?: Arg[]
   sym?: Token
   fill?: (...args: number[]) => number
-  floats = useState(new Float32Array([0]))
-  value = useState(
+  floats = useValue(new Float32Array([0]))
+  value = useValue(
     // 'f(x[40..300]=100)=\n  sin(x)' //pi2*(x+exp(-t%0.25*y)*p/(t%0.25)))\n *exp(-t%0.25*z)'
     'f(x[40..300]=100,y[1..100],z[1..100],p[0.001..5])=\n  sin(pi2*(x+exp(-t%0.25*y)*p/(t%0.25)))\n* exp(-t%0.25*z)'
   )
-  knobs = useState(
+  knobs = useValue(
     useCollection((id: string, arg?: Arg, prev?: KnobState): KnobState => {
       let min = 0
       let max = 1
@@ -154,11 +154,13 @@ export class SoundState {
         min = parseFloat(_min as string)
         max = parseFloat(_max as string)
       }
-      const value = prev ? prev.value : useState(1)
+      const defaultValue = arg!.default ? parseFloat(arg!.default[1] as never) : 1
+      const value = prev ? prev.value : useValue(defaultValue)
       if (arg!.default) {
         if (prev) {
-          if (value.value != parseFloat(arg!.default[1] as never))
-            value.set(parseFloat(arg!.default[1] as never))
+          if (value.value != defaultValue) {
+            value.set(defaultValue)
+          }
         }
       }
       return {
@@ -271,20 +273,30 @@ const insert = (x: string, index: number, y: string, offset = 0) => {
 
 let frame: number
 export const Sound = ({ sound }: { sound: SoundState }) => {
-  const plot: VRef<Plot> = {}
-  const editor: VRef<CodeEditElement> = {}
-  const ref = useRef<HTMLDivElement>(() => sound.compile())
-  const presetRef = useRef<HTMLDivElement>((el: HTMLDivElement) => {
+  const plot = useRef<Plot>()
+  const editor = useRef<CodeEditElement>()
+
+  const ref = useRef<HTMLDivElement>()
+  useEffect(() => {
+    sound.compile()
+  }, [ref])
+
+  const presetRef = useRef<HTMLDivElement>()
+
+  useEffect(() => {
+    const el = presetRef.current
     const resize = () => {
       el.style.height = '0'
-      const rect = ref.current!.getBoundingClientRect()
+      const rect = ref.current.getBoundingClientRect()
       el.style.height = rect.height + 'px'
     }
     setTimeout(resize)
     const observer = new ResizeObserver(resize)
     observer.observe(editor.current!)
-  })
-  console.log('draw all')
+  }, [presetRef])
+
+  console.log('draw sound')
+
   return (
     <div ref={ref} class="sound" theme="blue-matrix">
       <style>{style('.sound')}</style>
@@ -297,10 +309,12 @@ export const Sound = ({ sound }: { sound: SoundState }) => {
             language="mono"
             theme="blue-matrix"
             onkeydown={ev => {
-              if (ev.key === 'Enter' && (ev.ctrlKey || ev.metaKey)) {
-                ev.preventDefault()
-                sound.compile()
-                return false
+              if (ev.ctrlKey || ev.metaKey) {
+                if (ev.key === 'Enter' || ev.key === 's') {
+                  ev.preventDefault()
+                  sound.compile()
+                  return false
+                }
               }
             }}
           />
@@ -344,18 +358,26 @@ export const Sound = ({ sound }: { sound: SoundState }) => {
   )
 }
 
-const Knobs = ({ knobs }: { knobs: HookState<Collection<KnobState, Arg>> }) => {
+const Knobs = ({ knobs }: { knobs: Value<Collection<KnobState, Arg>> }) => {
   console.log('draw knobs')
   return (
     <>
       {knobs.get().map((knob, key) => {
-        const ref = useRef<KnobElement>(el =>
-          setTimeout(() => el.dispatchEvent(new InputEvent('input')))
-        )
+        const inputRef = useRef<HTMLInputElement>()
+        const knobRef = useRef<KnobElement>()
+
+        useEffect(() => {
+          setTimeout(() => {
+            if (knobRef.current.value !== knob.value.value) {
+              inputRef.current.dispatchEvent(new InputEvent('input'))
+            }
+          })
+        }, [inputRef, knobRef, knob.value])
+
         return (
-          <x-knob ref={ref} key={key} theme="sweet" fontsize={21} fontspace={0} fontpos={18}>
+          <x-knob ref={knobRef} key={key} theme="sweet" fontsize={21} fontspace={0} fontpos={18}>
             <input
-              ref={ref}
+              ref={inputRef}
               type="range"
               step={(knob.max - knob.min) / 127}
               min={knob.min}

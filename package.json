@@ -86,6 +86,7 @@
     "nested-css": "^2.0.0",
     "plenty-themes": "^1.1.0",
     "scoped-registries": "^0.2.0",
+    "virtual-state": "file:../virtual-state",
     "wait-for-the-element": "^4.0.1",
     "with-properties": "^0.1.0",
     "x-knob": "file:../x-knob",
