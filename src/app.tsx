@@ -52,6 +52,7 @@ const style = css`
     display: flex;
     width: 100%;
     height: 100%;
+    justify-content: center;
   }
   code-edit {
     margin: 0;
@@ -61,6 +62,7 @@ const style = css`
   .sounds {
     display: flex;
     width: 100%;
+    max-width: 600px;
     height: 100%;
     flex-flow: column nowrap;
     row-gap: 0.5em;

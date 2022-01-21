@@ -16,11 +16,11 @@ const style = css`
   /* max-width: 100%; */
   background: var(--black);
   flex-flow: row nowrap;
-
+  width: 100%;
   /* width: 50ch; */
 
   .main {
-    /* min-width: 400px; */
+    width: 100%;
     display: flex;
     flex-flow: column nowrap;
   }
@@ -36,7 +36,7 @@ const style = css`
   .knobs {
     font-family: Kanit;
     display: flex;
-    flex-flow: row nowrap;
+    flex-flow: row;
     justify-content: space-around;
 
     x-knob {
@@ -304,7 +304,6 @@ export const Sound = ({ sound }: { sound: SoundState }) => {
         <div class="edit">
           <Edit
             ref={editor}
-            style="width:50ch;"
             value={sound.value}
             language="mono"
             theme="blue-matrix"
