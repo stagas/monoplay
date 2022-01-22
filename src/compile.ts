@@ -1,18 +1,22 @@
 import { Module, Type, build } from '@stagas/mono'
 import * as lib from './lib.wat'
 
-export const make = async (expr: string, initialMemory?: WebAssembly.Memory) => {
+export const make = async (expr: string, initialMemory?: WebAssembly.Memory | null | undefined) => {
   try {
     const result = await compile(expr, { memory: initialMemory })
     const vars = result.vars
-    const fill = result.instance.exports.fill
+    const fill = result.instance.exports.fill as (
+      start: number,
+      end: number,
+      ...args: number[]
+    ) => number
     return { fill, memory: result.instance.memory, vars, sym: result.sym }
   } catch (e) {
     console.error(e)
   }
 }
 
-const wasm = async (binary: Uint8Array, memory?: WebAssembly.Memory) => {
+const wasm = async (binary: Uint8Array, memory?: WebAssembly.Memory | null | undefined) => {
   memory ||= new WebAssembly.Memory({
     initial: 16,
     maximum: 16,
@@ -25,7 +29,7 @@ const wasm = async (binary: Uint8Array, memory?: WebAssembly.Memory) => {
 
 export interface MakeOptions {
   metrics?: boolean
-  memory?: WebAssembly.Memory
+  memory?: WebAssembly.Memory | null | undefined
 }
 
 export const compile = async (input: string, { memory }: MakeOptions = {}) => {

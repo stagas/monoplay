@@ -1,13 +1,11 @@
 import { atomic } from 'atomic'
 import { CodeEditElement } from 'code-edit'
 import { css } from 'nested-css'
-import { KnobElement } from 'x-knob'
-import { Plot } from 'x-plot'
 import { Arg, Token } from '@stagas/mono'
-import { Fragment, VRef, h } from '@stagas/vele'
-import { Collection, Value, useCollection, useEffect, useRef, useState, useValue } from '../app'
+import { h } from '@stagas/vele'
+import { Value, useCallback, useCollection, useEffect, useRef, useState, useValue } from '../app'
 import { make } from '../compile'
-import { Edit, Knobs, Presets } from '.'
+import { Edit, KnobState, Knobs, PresetState, Presets } from '.'
 
 const style = css`
   display: flex;
@@ -29,11 +27,15 @@ const style = css`
     z-index: 1;
   }
 
-  button {
+  .play {
+    cursor: pointer;
     width: 42px;
     border: none;
     background: #9991;
     color: var(--purple);
+    &:hover {
+      background: #9992;
+    }
   }
 
   code-edit {
@@ -56,25 +58,40 @@ const sampleRate = 44100
 
 const ctx = new AudioContext({ sampleRate, latencyHint: 'playback' })
 
-interface KnobState {
-  id: string
-  arg: Arg
-  value: Value<number>
-  min: number
-  max: number
+const split = (x: string, index: number): [string, string] => [x.slice(0, index), x.slice(index)]
+const insert = (x: string, index: number, y: string, offset = 0) => {
+  return x.slice(0, index) + y + x.slice(index + offset)
 }
-export class SoundState {
-  id: string
-  memory?: WebAssembly.Memory
-  vars?: Arg[]
-  sym?: Token
-  fill?: (...args: number[]) => number
-  floats = useValue(new Float32Array([0]))
-  value = useValue(
-    // 'f(x[40..300]=100)=\n  sin(x)' //pi2*(x+exp(-t%0.25*y)*p/(t%0.25)))\n *exp(-t%0.25*z)'
+
+const unicode = (a: number, b: number) => String.fromCharCode(a + Math.random() * (b - a + 1))
+
+let frame: number
+export const Sound = (_props: { sound: string }) => {
+  const editorRef = useRef<CodeEditElement>()
+  const soundRef = useRef<HTMLDivElement>()
+
+  // sound data
+  const memory = useState<WebAssembly.Memory | null>(null)
+  const vars = useState<Arg[]>([])
+  const sym = useState<Token | null | void>(null)
+  const floats = useState(new Float32Array([0]))
+  const knobValues = useState<number[] | null>(null)
+
+  const presets = useState<PresetState[]>(() => {
+    return Array.from({ length: 20 })
+      .fill(0)
+      .map((_, i) => ({
+        id: i,
+        name: unicode(0x0250, 0x02af),
+        color: ['yellow', 'green', 'red', 'blue', 'cyan', 'purple'][(Math.random() * 6) | 0],
+      }))
+  })
+
+  const code = useState(
     'f(x[40..300]=100,y[1..100],z[1..100],p[0.001..5])=\n  sin(pi2*(x+exp(-t%0.25*y)*p/(t%0.25)))\n* exp(-t%0.25*z)'
   )
-  knobs = useValue(
+
+  const knobs = useState(
     useCollection((id: string, arg?: Arg, prev?: KnobState): KnobState => {
       let min = 0
       let max = 1
@@ -101,70 +118,74 @@ export class SoundState {
       }
     })
   )
-  constructor(id: string) {
-    this.id = id
-  }
-  async compile() {
-    const { fill, vars, memory, sym } = (await make(this.value.value, this.memory as never))!
-    this.fill = fill
-    this.vars = vars
-    this.memory = memory
-    this.sym = sym
-    const knobs = this.knobs.value
-    for (const arg of this.vars!) {
-      const knob = knobs.upget('' + arg.id, arg)
-      knob.arg = arg
-    }
-    this.knobs.set(knobs)
-    this.run()
-  }
-  run() {
-    const floats = new Float32Array(this.memory!.buffer, 0, 44100)
-    const knobs = this.knobs.value
 
-    try {
-      const args = this.vars!.filter(x => knobs.has('' + x.id)).map(x => {
-        return knobs.get('' + x.id, x)!.value.value
-      })
+  const fill = useState<((start: number, end: number, ...args: number[]) => number) | null>(null)
 
-      this.fill!(0, 44100, ...args)
-
-      this.floats.set(floats)
-    } catch (e) {
-      console.error(e)
-    }
-  }
-  play() {
-    const floats = new Float32Array(this.memory!.buffer, 0, 44100)
+  const play = useCallback(() => {
     const buffer = ctx.createBuffer(1, size, ctx.sampleRate)
-    buffer.copyToChannel(floats, 0)
+    buffer.copyToChannel(floats.value, 0)
     const source = ctx.createBufferSource()
     source.buffer = buffer
     source.connect(ctx.destination)
     source.start()
-  }
-  patch = atomic(
-    signal =>
-      async function (this: SoundState) {
-        // TODO: atomic()
-        // if (rendering) return
-        // rendering = true
+  })
 
-        return new Promise<void>(resolve => {
-          const knobs = this.knobs.value
-          let input = this.value.value
-          const fnargs = knobs.map((x, _, i) => {
-            const arg = x.arg!
+  const compile = useCallback(async () => {
+    console.log('compile')
+    const res = await make(code.value, memory.value)
+    if (!res) return
+
+    memory.set(res.memory)
+    vars.set(res.vars)
+    sym.set(res.sym)
+    fill.set(() => res.fill as never)
+    queueMicrotask(run)
+  })
+
+  useEffect(() => {
+    const k = knobs.value
+    for (const arg of vars.value!) {
+      const knob = k.upget('' + arg.id, arg)
+      knob.arg = arg
+    }
+    knobs.set(k)
+  }, [vars])
+
+  useEffect(() => {
+    const k = knobs.value
+    knobValues.set(
+      vars.value.filter(x => k.has('' + x.id)).map(x => k.get('' + x.id, x)!.value.value)
+    )
+  }, [knobs, vars, code])
+
+  const run = useCallback(() => {
+    try {
+      fill.value!(0, 44100, ...knobValues.value!)
+      floats.set(new Float32Array(memory.value!.buffer, 0, 44100))
+    } catch (e) {
+      console.error(e)
+    }
+  })
+
+  const patch = useCallback(
+    atomic(
+      signal => async () =>
+        new Promise<void>(resolve => {
+          let input = code.value
+
+          const total = vars.value.length
+          const fnargs = vars.value.map((arg, i) => {
+            const value = knobs.value.get('' + arg.id).value.value
             return (
-              (i > 0 ? '\n  ' : '') +
+              (i > 0 ? (total > 4 ? (i % 2 ? '\t' : '\n  ') : '\n  ') : '') +
               arg.id +
               (arg.range ? `[${arg.range[0][1]}..${arg.range[1][1]}]` : '') +
               '=' +
-              parseFloat(x.value.value.toFixed(Math.abs(+x.value.value) < 10 ? 2 : 1))
+              parseFloat(value.toFixed(Math.abs(+value) < 10 ? 2 : 1))
             )
           })
 
-          const [, after] = split(input, this.sym!.index)
+          const [, after] = split(input, sym.value!.index)
           const [fndef] = split(after, after.indexOf(')'))
           const [, args] = split(fndef, fndef.indexOf('(') + 1)
           const newArgs = fnargs.join(',')
@@ -174,7 +195,7 @@ export class SoundState {
           prev.blur()
 
           let prevSelect = prev.pins?.textarea?.selectionStart
-          this.value.set(input)
+          code.set(input)
 
           if (prevSelect) {
             prevSelect += newArgs.length - args.length
@@ -183,31 +204,18 @@ export class SoundState {
 
               prev.pins?.textarea?.setSelectionRange(prevSelect, prevSelect)
               prev.focus()
+
               resolve()
-              // rendering = false
             })
           } else {
             resolve()
-            // rendering = false
           }
         })
-      }
+    )
   )
-}
 
-const split = (x: string, index: number): [string, string] => [x.slice(0, index), x.slice(index)]
-const insert = (x: string, index: number, y: string, offset = 0) => {
-  return x.slice(0, index) + y + x.slice(index + offset)
-}
-
-let frame: number
-export const Sound = ({ sound }: { sound: SoundState }) => {
-  const plot = useRef<Plot>()
-  const editorRef = useRef<CodeEditElement>()
-
-  const soundRef = useRef<HTMLDivElement>()
   useEffect(() => {
-    sound.compile()
+    compile()
   }, [soundRef])
 
   console.log('draw sound')
@@ -219,20 +227,20 @@ export const Sound = ({ sound }: { sound: SoundState }) => {
         <div class="edit">
           <Edit
             ref={editorRef}
-            value={sound.value}
+            value={code}
             language="mono"
             theme="blue-matrix"
             onkeydown={ev => {
               if (ev.ctrlKey || ev.metaKey) {
                 if (ev.key === 'Enter' || ev.key === 's') {
                   ev.preventDefault()
-                  sound.compile()
+                  compile()
                   return false
                 }
               }
             }}
           />
-          <button theme="blue-matrix" onclick={() => sound.play()}>
+          <button class="play" theme="blue-matrix" onclick={() => play()}>
             <icon-svg set="feather" icon="play" />
           </button>
         </div>
@@ -241,20 +249,20 @@ export const Sound = ({ sound }: { sound: SoundState }) => {
           oninput={() => {
             cancelAnimationFrame(frame)
             frame = requestAnimationFrame(() => {
-              sound.patch()
-              sound.run()
+              patch()
+              run()
             })
           }}
         >
-          <Knobs knobs={sound.knobs} />
+          <Knobs knobs={knobs} vars={vars} />
         </div>
-        <SoundPlot plot={plot} sound={sound} />
+        <SoundPlot floats={floats} />
       </div>
-      <Presets soundRef={soundRef} editorRef={editorRef} />
+      <Presets presets={presets} soundRef={soundRef} editorRef={editorRef} />
     </div>
   )
 }
 
-const SoundPlot = ({ plot, sound }: { plot: VRef<Plot>; sound: SoundState }) => {
-  return <x-plot autoresize ref={plot} width="600" height="60" data={sound.floats.get()} />
+const SoundPlot = ({ floats }: { floats: Value<Float32Array> }) => {
+  return <x-plot autoresize width={600} height={60} data={floats.get() as unknown as number[]} />
 }

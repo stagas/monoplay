@@ -26,14 +26,22 @@ const style = css`
   }
 `
 
-const Knob = ({ knob }) => {
+export interface KnobState {
+  id: string
+  arg: Arg
+  value: Value<number>
+  min: number
+  max: number
+}
+
+const Knob = ({ knob }: { knob: KnobState }) => {
   const inputRef = useRef<HTMLInputElement>()
   const knobRef = useRef<KnobElement>()
 
   useEffect(() => {
     setTimeout(() => {
-      if (knobRef.current.value !== knob.value.value) {
-        inputRef.current.dispatchEvent(new InputEvent('input'))
+      if (knobRef.current!.value !== knob.value.value) {
+        inputRef.current!.dispatchEvent(new InputEvent('input'))
       }
     })
   }, [inputRef, knobRef, knob.value])
@@ -55,13 +63,19 @@ const Knob = ({ knob }) => {
   )
 }
 
-export const Knobs = ({ knobs }: { knobs: Value<Collection<KnobState, Arg>> }) => {
+export const Knobs = ({
+  knobs,
+  vars,
+}: {
+  knobs: Value<Collection<KnobState, Arg>>
+  vars: Value<Arg[]>
+}) => {
   console.log('draw knobs')
   return (
     <>
       <style>{style('.knobs')}</style>
-      {knobs.get().map((knob, key) => (
-        <Knob key={key} knob={knob} />
+      {vars.get().map(arg => (
+        <Knob key={'' + arg.id} knob={knobs.get().get('' + arg.id)} />
       ))}
     </>
   )

@@ -3,8 +3,6 @@ import { css } from 'nested-css'
 import { Fragment, h } from '@stagas/vele'
 import { Value, useEffect, useRef } from '../app'
 
-const unicode = (a: number, b: number) => String.fromCharCode(a + Math.random() * (b - a + 1))
-
 const style = css`
   display: block;
   min-width: 100px;
@@ -52,46 +50,50 @@ const style = css`
   }
 `
 
+export interface PresetState {
+  id: string | number
+  name: string
+  color: string
+}
+
 export const Presets = ({
+  presets,
   soundRef,
   editorRef,
 }: {
-  soundRef: Value<HTMLDivElement>
-  editorRef: Value<CodeEditElement>
+  presets: Value<PresetState[]>
+  soundRef: Value<HTMLDivElement | null>
+  editorRef: Value<CodeEditElement | null>
 }) => {
   const presetRef = useRef<HTMLDivElement>()
 
   useEffect(() => {
-    const el = presetRef.current
+    const el = presetRef.current!
     const resize = () => {
       el.style.height = '0'
-      const rect = soundRef.current.getBoundingClientRect()
+      const rect = soundRef.current!.getBoundingClientRect()
       el.style.height = rect.height + 'px'
     }
     setTimeout(resize)
     const observer = new ResizeObserver(resize)
     observer.observe(editorRef.current!)
-  }, [presetRef])
+  }, [presetRef, soundRef, editorRef])
 
   return (
     <>
       <style>{style('.presets')}</style>
       <div ref={presetRef} class="presets">
         <div class="inner">
-          {Array.from({ length: 20 })
-            .fill(0)
-            .map((_, i) => (
-              <button
-                key={i}
-                style={{
-                  background: `var(--${
-                    ['yellow', 'green', 'red', 'blue', 'cyan', 'purple'][(Math.random() * 6) | 0]
-                  })`,
-                }}
-              >
-                {unicode(0x0250, 0x02af)}
-              </button>
-            ))}
+          {presets.get().map(p => (
+            <button
+              key={p.id}
+              style={{
+                background: `var(--${p.color})`,
+              }}
+            >
+              {p.name}
+            </button>
+          ))}
         </div>
       </div>
     </>

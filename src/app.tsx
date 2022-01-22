@@ -6,15 +6,14 @@ import 'scoped-registries'
 import { CodeEditElement, HTMLCodeEditElement, languages } from 'code-edit'
 import { HTMLIconSvgElement, IconSvgElement } from 'icon-svg'
 import { css } from 'nested-css'
-// import { useCollection } from './helpers'
 import { Provider } from 'virtual-state'
 import type { Collection, Value } from 'virtual-state'
 import { HTMLKnobElement, KnobElement } from 'x-knob'
-import { Plot } from 'x-plot'
+import { HTMLPlotElement, PlotElement } from 'x-plot'
 import { Fragment, h, render, setCurrentProvider } from '@stagas/vele'
-import { Sound, SoundState } from './components'
+import { Sound } from './components'
 
-customElements.define('x-plot', Plot)
+customElements.define('x-plot', PlotElement)
 customElements.define('x-knob', KnobElement)
 customElements.define('code-edit', CodeEditElement)
 customElements.define('icon-svg', IconSvgElement)
@@ -25,6 +24,7 @@ declare global {
       'code-edit': HTMLCodeEditElement & HTMLAttributes<CodeEditElement>
       'icon-svg': HTMLIconSvgElement & HTMLAttributes<IconSvgElement>
       'x-knob': Partial<HTMLKnobElement> & HTMLAttributes<KnobElement>
+      'x-plot': Partial<HTMLPlotElement> & HTMLAttributes<PlotElement>
     }
 
     interface IntrinsicAttributes {
@@ -101,7 +101,7 @@ const style = css`
 
 const provider = new Provider()
 setCurrentProvider(provider as never)
-export const { useValue, useState, useRef, useEffect, useCollection } = provider
+export const { useValue, useState, useRef, useEffect, useCallback, useCollection } = provider
 
 export type { Value, Collection }
 
@@ -109,9 +109,7 @@ const App = () => {
   console.log('draw app')
 
   const sounds = useCollection(id => {
-    const sound = new SoundState(id)
-    // sound.compile()
-    return sound
+    return id
   })
 
   const allSounds = ['a', 'b', 'c']

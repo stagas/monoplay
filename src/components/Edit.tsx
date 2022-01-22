@@ -3,7 +3,7 @@ import { Value } from 'virtual-state'
 import { h } from '@stagas/vele'
 
 export interface EditProps {
-  ref?: Value<CodeEditElement>
+  ref?: Value<CodeEditElement | null>
   value: Value<string>
   language?: string
   slot?: string

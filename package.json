@@ -5,7 +5,6 @@
   "description": "mono lang playground",
   "version": "0.0.0",
   "license": "MIT",
-  "private": true,
   "repository": {
     "type": "git",
     "url": "git+https://git@github.com:stagas/monoplay.git"
@@ -24,7 +23,7 @@
   ],
   "scripts": {
     "start": "vite-open src/app.tsx",
-    "build:watch": "tsc --outDir dist/esm --module esnext --watch",
+    "build:watch": "tsc --outDir dist/esm --module esnext --watch & tsc --outDir dist/cjs --watch",
     "cov:watch": "jest --coverage --watchAll",
     "test": "npm run test:node && npm run test:web",
     "test:node": "jest",
@@ -40,7 +39,8 @@
     "clean": "rimraf dist",
     "prepack": "npm run clean && npm run build",
     "prepack:dry": "npm pack --dry-run",
-    "prepare": "husky install"
+    "prepare": "husky install && node .pull-configs.js",
+    "prepush": "npm run lint && npm run test"
   },
   "devDependencies": {
     "@n1kk/intspector": "^1.0.2",
@@ -67,6 +67,7 @@
     "jest-browser-globals": "^25.1.0-beta",
     "onchange": "^7.1.0",
     "prettier": "^2.5.1",
+    "pull-configs": "^0.1.1",
     "rimraf": "^3.0.2",
     "terser": "^5.10.0",
     "ts-jest": "^27.1.3",
@@ -75,8 +76,8 @@
     "vite-open": "^1.1.0"
   },
   "dependencies": {
-    "@stagas/mono": "file:../mono",
-    "@stagas/vele": "file:../vele",
+    "@stagas/mono": "^0.0.2",
+    "@stagas/vele": "^0.1.0",
     "atomic": "^1.0.0",
     "code-edit": "^1.0.0",
     "code-syntax": "^1.0.0",
@@ -86,10 +87,10 @@
     "nested-css": "^2.0.0",
     "plenty-themes": "^1.1.0",
     "scoped-registries": "^0.2.0",
-    "virtual-state": "file:../virtual-state",
+    "virtual-state": "^0.0.1",
     "wait-for-the-element": "^4.0.1",
     "with-properties": "^0.1.0",
-    "x-knob": "file:../x-knob",
-    "x-plot": "file:../plot"
+    "x-knob": "^0.0.1",
+    "x-plot": "^1.1.2"
   }
 }
