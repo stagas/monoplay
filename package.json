@@ -84,7 +84,7 @@
     "construct-style-sheets-polyfill": "^3.0.5",
     "debounce-micro": "^1.0.0",
     "icon-svg": "^1.0.1",
-    "nested-css": "^2.0.0",
+    "nested-css": "^2.0.1",
     "plenty-themes": "^1.1.0",
     "scoped-registries": "^0.2.0",
     "virtual-state": "^0.0.1",
